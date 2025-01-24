@@ -4,6 +4,7 @@ import path from 'path';
 import { credentialsManager } from '../security/credentials';
 import { ElementHandle } from 'puppeteer-core';
 import { OllamaCaptchaService } from '../captcha/ollama-captcha';
+import { InternVLCaptchaService } from '../captcha/internvl-captcha';
 
 export class JulivesDownloader extends FileDownloader {
     private readonly SELECTORS = {
@@ -27,15 +28,21 @@ export class JulivesDownloader extends FileDownloader {
     };
 
     private ollamaCaptchaService: OllamaCaptchaService;
+    private internVLCaptchaService: InternVLCaptchaService;
+    private captchaService: OllamaCaptchaService | InternVLCaptchaService;
 
     constructor() {
         super();
         this.ollamaCaptchaService = new OllamaCaptchaService();
+        this.internVLCaptchaService = new InternVLCaptchaService();
+        // 默认使用 InternVL 服务
+        this.captchaService = this.internVLCaptchaService;
     }
 
     async init(): Promise<boolean> {
         const baseInit = await super.init();
         await this.ollamaCaptchaService.init();
+        await this.internVLCaptchaService.init();
         return baseInit;
     }
 
@@ -633,7 +640,8 @@ export class JulivesDownloader extends FileDownloader {
                         }
                     }
 
-                    captchaResult = await this.ollamaCaptchaService.solveCaptcha(this.page, this.SELECTORS.CAPTCHA_IMAGE);
+                    // 使用当前选择的验证码服务进行识别
+                    captchaResult = await this.captchaService.solveCaptcha(this.page, this.SELECTORS.CAPTCHA_IMAGE);
                     console.log(`第 ${retryCount} 次验证码识别结果:`, captchaResult);
 
                     console.log('输入验证码...');
@@ -681,6 +689,13 @@ export class JulivesDownloader extends FileDownloader {
 
                     if (errorMessage) {
                         console.error(`第 ${retryCount} 次验证码验证失败:`, errorMessage);
+                        // 如果当前服务失败，尝试切换到另一个服务
+                        if (retryCount === maxRetries - 1) {
+                            console.log('尝试切换验证码识别服务...');
+                            this.captchaService = this.captchaService === this.ollamaCaptchaService
+                                ? this.internVLCaptchaService
+                                : this.ollamaCaptchaService;
+                        }
                         continue;
                     }
 
@@ -690,6 +705,13 @@ export class JulivesDownloader extends FileDownloader {
 
                 } catch (error) {
                     console.error(`第 ${retryCount} 次验证码处理失败:`, error);
+                    // 如果当前服务失败，尝试切换到另一个服务
+                    if (retryCount === maxRetries - 1) {
+                        console.log('尝试切换验证码识别服务...');
+                        this.captchaService = this.captchaService === this.ollamaCaptchaService
+                            ? this.internVLCaptchaService
+                            : this.ollamaCaptchaService;
+                    }
                     if (retryCount === maxRetries) {
                         throw error;
                     }
