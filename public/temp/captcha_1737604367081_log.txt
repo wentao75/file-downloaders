@@ -1,0 +1,16 @@
+
+原始图片路径: /Users/wentao/workspace/cursor/firstagent/public/temp/captcha_1737604367081.png
+OCR 配置: {
+  "lang": "eng",
+  "oem": 1,
+  "psm": 7,
+  "preprocess": true,
+  "tessedit_char_whitelist": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+  "scale": 2,
+  "binary": "true",
+  "dpi": 300
+}
+OCR 原始结果: 
+处理后结果: 
+识别时间: 2025-01-23T03:52:47.284Z
+                

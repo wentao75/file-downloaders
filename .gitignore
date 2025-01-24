@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 日志文件
+/captcha_images
+*.png
+*.xls
+
+# chrome data
+/chrome-data

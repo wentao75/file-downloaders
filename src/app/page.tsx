@@ -1,101 +1,126 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+
+interface LogEntry {
+  timestamp: string;
+  message: string;
+  type: 'info' | 'error' | 'success';
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [date, setDate] = useState<string>(
+    new Date(Date.now() - 86400000).toISOString().split('T')[0]
+  );
+  const [status, setStatus] = useState('idle');
+  const [logs, setLogs] = useState<LogEntry[]>([]);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  const addLog = (message: string, type: LogEntry['type'] = 'info') => {
+    setLogs(prev => [...prev, {
+      timestamp: new Date().toLocaleTimeString(),
+      message,
+      type
+    }]);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('processing');
+    setLogs([]); // 清空之前的日志
+    
+    addLog('开始下载任务...', 'info');
+    
+    try {
+      const response = await fetch('/api/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ date }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || '下载失败');
+      }
+      
+      const data = await response.json();
+      
+      if (data.logs) {
+        data.logs.forEach((log: string) => addLog(log, 'info'));
+      }
+      
+      addLog('下载任务完成！', 'success');
+      setStatus('success');
+    } catch (error) {
+      console.error(error);
+      addLog(error instanceof Error ? error.message : '未知错误', 'error');
+      setStatus('error');
+    }
+  };
+
+  return (
+    <main className="min-h-screen p-8">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold mb-8">聚力维斯对账文件下载</h1>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block mb-2">对账日期</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full p-2 border rounded"
+              required
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <p className="text-sm text-gray-500 mt-1">默认为昨天</p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={status === 'processing'}
+            className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
           >
-            Read our docs
-          </a>
+            {status === 'processing' ? '处理中...' : '开始下载'}
+          </button>
+        </form>
+
+        {/* 日志显示区域 */}
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold mb-4">执行日志</h2>
+          <div className="bg-gray-50 rounded-lg p-4 h-64 overflow-y-auto font-mono text-sm">
+            {logs.length === 0 ? (
+              <div className="text-gray-400">等待任务开始...</div>
+            ) : (
+              logs.map((log, index) => (
+                <div
+                  key={index}
+                  className={`mb-1 ${
+                    log.type === 'error' ? 'text-red-600' :
+                    log.type === 'success' ? 'text-green-600' :
+                    'text-gray-700'
+                  }`}
+                >
+                  <span className="text-gray-400">[{log.timestamp}]</span> {log.message}
+                </div>
+              ))
+            )}
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+
+        {status === 'success' && (
+          <div className="mt-4 p-4 bg-green-100 text-green-700 rounded">
+            下载成功！
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div className="mt-4 p-4 bg-red-100 text-red-700 rounded">
+            下载失败，请查看日志了解详细信息。
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
